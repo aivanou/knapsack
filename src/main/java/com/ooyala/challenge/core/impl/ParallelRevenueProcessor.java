@@ -5,6 +5,8 @@ import com.ooyala.challenge.data.Company;
 import com.ooyala.challenge.data.Output;
 import com.ooyala.challenge.data.OutputData;
 import com.ooyala.challenge.data.OutputMetadata;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -37,6 +39,7 @@ import java.util.concurrent.*;
  */
 public class ParallelRevenueProcessor extends RevenueProcessor implements Processor {
 
+    private static final Logger LOGGER = LoggerFactory.getLogger(ParallelRevenueProcessor.class);
     private Executor executor;
     private int nTasks;
 
@@ -186,12 +189,13 @@ public class ParallelRevenueProcessor extends RevenueProcessor implements Proces
             try {
                 while (!barrier.await(WAIT_TIME, TimeUnit.SECONDS)) {
                     if (interrupt) {
-                        throw new InterruptedException();
+                        LOGGER.warn("TASK was interrupted by somebody");
+                        return;
                     }
                 }
             } catch (InterruptedException e) {
                 //interrupted, finish the task
-                e.printStackTrace();
+                LOGGER.error(e.getLocalizedMessage());
                 return;
             }
         }
@@ -212,7 +216,8 @@ public class ParallelRevenueProcessor extends RevenueProcessor implements Proces
                         }
                         r2 = getObjectFromQueue();
                     } catch (InterruptedException e) {
-                        e.printStackTrace();
+                        LOGGER.error(e.getLocalizedMessage());
+                        return;
                     }
                     Result combined = combine(r1, r2);
                     outputQueue.add(combined);

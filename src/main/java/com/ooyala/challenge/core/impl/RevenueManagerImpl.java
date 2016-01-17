@@ -12,8 +12,10 @@ import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.Future;
 
 /**
+ * The controller that is available for usage by external classes and frameworks
  */
 public class RevenueManagerImpl implements RevenueManager {
 
@@ -36,6 +38,17 @@ public class RevenueManagerImpl implements RevenueManager {
         return internalCompute(input);
     }
 
+    /**
+     * Technically, the internalCompute method should be executed inside a separate thread,
+     * But in this case we should keep track on the amount of concurrent tasks
+     * and block, delay or forbidden the execution of new requests if all workers are occupied.
+     * <p>
+     * This will guarantee that the server will execute the amount of tasks
+     * that it actually can compute
+     *
+     * @param data
+     * @param callback
+     */
     @Override public void computeAsync(Input data, ManagerCallback callback) {
         ValidationError errors = validate(data);
         if (!errors.getMessages().isEmpty()) {

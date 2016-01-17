@@ -3,6 +3,8 @@ package com.ooyala.challenge.data;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 /**
+ * Combined internal and DTO output object
+ * see @link(Input) class
  */
 public class OutputMetadata {
 

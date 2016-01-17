@@ -10,6 +10,13 @@ import java.util.List;
 
 /**
  * Combined Internal and DTO input object
+ * <p>
+ * Technically, this class should be split on two:
+ * DTO and internal object.
+ * <p>
+ * The requests should be represented by a external DTO object,
+ * while the computation unit should be an immutable internal object
+ * (But it will be a lot of classes for this small task)
  */
 public class Input {
 

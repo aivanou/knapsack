@@ -23,19 +23,23 @@ public class InternalCacheManager implements CacheManager<Input, Output> {
         this.internalCache = CacheBuilder.newBuilder().expireAfterAccess(10, TimeUnit.MINUTES).build();
     }
 
+    @Override
     public void insert(Input inputData, Output output) {
         internalCache.put(inputData, output);
     }
 
+    @Override
     public void insertAsync(Input inputData, Output output, CacheInsertCallback callback) {
         internalCache.put(inputData, output);
         callback.success();
     }
 
+    @Override
     public Output retrieve(Input inputData) throws CacheException {
         return internalCache.getIfPresent(inputData);
     }
 
+    @Override
     public Future<Output> retrieveAsync(final Input inputData) {
         return new Future<Output>() {
             public boolean cancel(boolean mayInterruptIfRunning) {

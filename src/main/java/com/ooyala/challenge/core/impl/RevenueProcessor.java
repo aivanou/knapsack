@@ -15,12 +15,7 @@ public abstract class RevenueProcessor implements Processor {
 
     @Override
     public Output compute(Input input) {
-        List<Company> removedCompanies = new ArrayList<>();
-        input.getCompanies().stream().filter(company -> company.getRevenue() == 0).forEach(
-            company -> {
-                input.getCompanies().remove(company);
-                removedCompanies.add(company);
-            });
+        List<Company> removedCompanies = removeCompaniesWithZeroRevenue(input);
         int factor = normalise(input);
         Output output = compute(input.getCompanies(), input.getAvailableImpressions());
         denormalise(output, factor);
@@ -29,6 +24,16 @@ public abstract class RevenueProcessor implements Processor {
     }
 
     protected abstract Output compute(List<Company> companies, int availableImpressions);
+
+    private List<Company> removeCompaniesWithZeroRevenue(Input input) {
+        List<Company> removedCompanies = new ArrayList<>();
+        input.getCompanies().stream().filter(company -> company.getRevenue() == 0).forEach(
+            company -> {
+                input.getCompanies().remove(company);
+                removedCompanies.add(company);
+            });
+        return removedCompanies;
+    }
 
     private int normalise(Input input) {
         int factor = input.getCompanies().stream().map(Company::getNumberOfImpression).reduce(input.getAvailableImpressions(), (v1, v2) -> gcd(v1, v2));
@@ -51,5 +56,4 @@ public abstract class RevenueProcessor implements Processor {
             return n1;
         return gcd(n2, n1 % n2);
     }
-
 }

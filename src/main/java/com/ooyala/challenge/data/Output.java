@@ -8,6 +8,7 @@ import java.util.List;
 
 /**
  * Combined Internal and DTO output object
+ * see @link(Input) class
  */
 public class Output {
 
