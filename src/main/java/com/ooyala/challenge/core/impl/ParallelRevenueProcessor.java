@@ -13,6 +13,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.*;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * Parallel implementation of unbounded knapsack problem.
@@ -52,9 +53,11 @@ public class ParallelRevenueProcessor extends RevenueProcessor implements Proces
         List<Company>[] tasksData = split(companies, nTasks);
         BlockingDeque<Result> outputQueue = new LinkedBlockingDeque<>(nTasks + 2);
         BlockingDeque<Result> resultQueue = new LinkedBlockingDeque<>(1);
+        AtomicInteger processingTasks = new AtomicInteger(0);
         CountDownLatch barrier = new CountDownLatch(nTasks);
+
         for (int i = 0; i < nTasks; ++i) {
-            executor.execute(new ComputeTask(tasksData[i], availableImpressions, barrier, resultQueue, outputQueue));
+            executor.execute(new ComputeTask(tasksData[i], availableImpressions, barrier, resultQueue, outputQueue, processingTasks));
         }
         Result result = null;
         try {
@@ -157,14 +160,16 @@ public class ParallelRevenueProcessor extends RevenueProcessor implements Proces
          */
         private volatile boolean interrupt = false;
         private final int WAIT_TIME = 2;
+        private volatile AtomicInteger processingTasks;
 
         public ComputeTask(List<Company> companies, int availableImpressions, CountDownLatch barrier,
-            BlockingDeque<Result> resultQueue, BlockingDeque<Result> outputQueue) {
+            BlockingDeque<Result> resultQueue, BlockingDeque<Result> outputQueue, AtomicInteger processingTasks) {
             this.companies = companies;
             this.availableImpressions = availableImpressions;
             this.barrier = barrier;
             this.resultQueue = resultQueue;
             this.outputQueue = outputQueue;
+            this.processingTasks = processingTasks;
         }
 
         @Override public void run() {
@@ -210,18 +215,24 @@ public class ParallelRevenueProcessor extends RevenueProcessor implements Proces
                     }
                     try {
                         r1 = getObjectFromQueue();
-                        if (outputQueue.isEmpty()) {
+                        if (outputQueue.isEmpty() && processingTasks.get() == 0) {
                             /**if the queue has only 1 element that means that all subtasks were combined*/
                             resultQueue.add(r1);
+                        } else {
+                            /**some other workers executing combine step*/
+                            outputQueue.add(r1);
+                            continue;
                         }
                         r2 = getObjectFromQueue();
+                        processingTasks.incrementAndGet();
                     } catch (InterruptedException e) {
                         LOGGER.error(e.getLocalizedMessage());
                         return;
                     }
-                    Result combined = combine(r1, r2);
-                    outputQueue.add(combined);
                 }
+                Result combined = combine(r1, r2);
+                outputQueue.add(combined);
+                processingTasks.decrementAndGet();
             }
         }
 
