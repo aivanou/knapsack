@@ -57,6 +57,19 @@ public class DummyInputDataSets {
         return null;
     }
 
+    public static Output dataSetOutput1() {
+        OutputMetadata metadata = new OutputMetadata(32000000, 3620);
+        List<OutputData> out = new ArrayList<>();
+        out.add(new OutputData("Acme", 0, 0, 0));
+        out.add(new OutputData("Lorem", 8, 28000000, 3200));
+        out.add(new OutputData("Ipsum", 0, 0, 0));
+        out.add(new OutputData("Dolor", 0, 0, 0));
+        out.add(new OutputData("SIT", 0, 0, 0));
+        out.add(new OutputData("Amet", 2, 3000000, 320));
+        out.add(new OutputData("Mauris", 1, 1000000, 100));
+        return new Output(out, metadata);
+    }
+
     public static Input dataSet4() {
         try {
             return deserialize(

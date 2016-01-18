@@ -46,12 +46,18 @@ public class SequentialRevenueProcessor extends RevenueProcessor implements Proc
 
     private List<OutputData> gatherCompanies(List<Company> companies, int totalImpressions, int[] acceptedCompanies) {
         List<OutputData> outputData = new ArrayList<>(companies.size());
-        outputData.addAll(companies.stream().map(company -> new OutputData(company.getName(), 0, 0, 0)).collect(Collectors.toList()));
+        outputData.addAll(companies.stream()
+            .map(company -> new OutputData(company.getName(), 0, company.getNumberOfImpression(), company.getRevenue()))
+            .collect(Collectors.toList()));
         while (totalImpressions > 0) {
             int companyToAdd = acceptedCompanies[totalImpressions];
             outputData.get(companyToAdd).incCampains();
             totalImpressions -= companies.get(companyToAdd).getNumberOfImpression();
         }
+        outputData.stream().forEach(out -> {
+            out.setTotalImpression(out.getTotalImpression() * out.getNumberOfCampains());
+            out.setTotalRevenue(out.getTotalRevenue() * out.getNumberOfCampains());
+        });
         return outputData;
     }
 }

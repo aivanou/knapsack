@@ -21,8 +21,21 @@ public class InternalCacheManagerTest {
     public void retrieveValue() {
         try {
             Input inputData = DummyInputDataSets.dataSet1();
+            Output out = DummyInputDataSets.dummyOutputFromInput(inputData);
+            cacheManager.insert(inputData, out);
+            Output toTest = cacheManager.retrieve(inputData);
+            Assert.assertEquals(toTest, out);
+        } catch (CacheException e) {
+            Assert.fail(e.getMessage());
+        }
+    }
+
+    @Test
+    public void retrieveNonExistValue() {
+        try {
+            Input inputData = DummyInputDataSets.dataSet1();
             Output out = cacheManager.retrieve(inputData);
-            Assert.assertEquals(out.getOutputData().size(), inputData.getCompanies().size());
+            Assert.assertNull(out);
         } catch (CacheException e) {
             Assert.fail(e.getMessage());
         }

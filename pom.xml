@@ -60,9 +60,6 @@
                     <argLine>-Xms4096m -Xmx4096m</argLine>
                     <testFailureIgnore>false</testFailureIgnore>
                     <skip>false</skip>
-                    <includes>
-                        <include>**/*TestRevenueManager.java</include>
-                    </includes>
                 </configuration>
             </plugin>
             <plugin>

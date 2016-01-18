@@ -7,6 +7,7 @@ import com.ooyala.challenge.data.Output;
 import com.ooyala.challenge.data.OutputData;
 
 import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.List;
 
 /**
@@ -27,27 +28,25 @@ public abstract class RevenueProcessor implements Processor {
 
     private List<Company> removeCompaniesWithZeroRevenue(Input input) {
         List<Company> removedCompanies = new ArrayList<>();
-        input.getCompanies().stream().filter(company -> company.getRevenue() == 0).forEach(
-            company -> {
-                input.getCompanies().remove(company);
+        for (Iterator<Company> it = input.getCompanies().iterator(); it.hasNext(); ) {
+            Company company = it.next();
+            if (company.getRevenue() == 0) {
                 removedCompanies.add(company);
-            });
+                it.remove();
+            }
+        }
         return removedCompanies;
     }
 
     private int normalise(Input input) {
         int factor = input.getCompanies().stream().map(Company::getNumberOfImpression).reduce(input.getAvailableImpressions(), (v1, v2) -> gcd(v1, v2));
-        for (Company company : input.getCompanies()) {
-            company.setNumberOfImpression(company.getNumberOfImpression() / factor);
-        }
+        input.getCompanies().forEach(company -> company.setNumberOfImpression(company.getNumberOfImpression() / factor));
         input.setAvailableImpressions(input.getAvailableImpressions() / factor);
         return factor;
     }
 
     private void denormalise(Output output, int factor) {
-        for (OutputData out : output.getOutputData()) {
-            out.setTotalImpression(out.getTotalImpression() * factor);
-        }
+        output.getOutputData().stream().forEach(out -> out.setTotalImpression(out.getTotalImpression() * factor));
         output.getOutputMetadata().setTotalImpressions(output.getOutputMetadata().getTotalImpressions() * factor);
     }
 

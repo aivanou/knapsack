@@ -218,10 +218,11 @@ public class ParallelRevenueProcessor extends RevenueProcessor implements Proces
                         if (outputQueue.isEmpty() && processingTasks.get() == 0) {
                             /**if the queue has only 1 element that means that all subtasks were combined*/
                             resultQueue.add(r1);
-                        } else {
+                            return;
+                        } else if (outputQueue.isEmpty()) {
                             /**some other workers executing combine step*/
                             outputQueue.add(r1);
-                            continue;
+                            return;
                         }
                         r2 = getObjectFromQueue();
                         processingTasks.incrementAndGet();
@@ -283,9 +284,9 @@ public class ParallelRevenueProcessor extends RevenueProcessor implements Proces
         }
 
         private Capacity combine(Capacity c1, Capacity c2) {
-            c1.companies.addAll(c2.companies);
-            c1.revenue += c2.revenue;
-            return c1;
+            Capacity combined = new Capacity(c1.companies, c1.revenue + c2.revenue);
+            combined.companies.addAll(c2.companies);
+            return combined;
         }
     }
 
