@@ -3,7 +3,7 @@ package com.ooyala.challenge.core.impl;
 import com.ooyala.challenge.core.Processor;
 import com.ooyala.challenge.data.Company;
 import com.ooyala.challenge.data.Output;
-import com.ooyala.challenge.data.OutputData;
+import com.ooyala.challenge.data.OutputItem;
 import com.ooyala.challenge.data.OutputMetadata;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -65,13 +65,13 @@ public class ParallelRevenueProcessor extends RevenueProcessor implements Proces
         } catch (InterruptedException e) {
             e.printStackTrace();
         }
-        Map<String, OutputData> reduce = new HashMap<>();
+        Map<String, OutputItem> reduce = new HashMap<>();
         result.capacities[result.totalCapacity].companies.stream().forEach(
             company -> {
                 if (!reduce.containsKey(company.getName())) {
-                    reduce.put(company.getName(), new OutputData(company.getName(), 1, company.getNumberOfImpression(), company.getRevenue()));
+                    reduce.put(company.getName(), new OutputItem(company.getName(), 1, company.getNumberOfImpression(), company.getRevenue()));
                 } else {
-                    OutputData out = reduce.get(company.getName());
+                    OutputItem out = reduce.get(company.getName());
                     out.incCampains();
                     out.setTotalImpression(out.getTotalImpression() + company.getNumberOfImpression());
                     out.setTotalRevenue(out.getTotalRevenue() + company.getRevenue());

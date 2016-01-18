@@ -4,7 +4,7 @@ import com.ooyala.challenge.core.Processor;
 import com.ooyala.challenge.data.Company;
 import com.ooyala.challenge.data.Input;
 import com.ooyala.challenge.data.Output;
-import com.ooyala.challenge.data.OutputData;
+import com.ooyala.challenge.data.OutputItem;
 
 import java.util.ArrayList;
 import java.util.Iterator;
@@ -20,7 +20,7 @@ public abstract class RevenueProcessor implements Processor {
         int factor = normalise(input);
         Output output = compute(input.getCompanies(), input.getAvailableImpressions());
         denormalise(output, factor);
-        removedCompanies.stream().forEach(company -> output.getOutputData().add(new OutputData(company.getName(), 0, 0, 0)));
+        removedCompanies.stream().forEach(company -> output.getOutputItem().add(new OutputItem(company.getName(), 0, 0, 0)));
         return output;
     }
 
@@ -46,7 +46,7 @@ public abstract class RevenueProcessor implements Processor {
     }
 
     private void denormalise(Output output, int factor) {
-        output.getOutputData().stream().forEach(out -> out.setTotalImpression(out.getTotalImpression() * factor));
+        output.getOutputItem().stream().forEach(out -> out.setTotalImpression(out.getTotalImpression() * factor));
         output.getOutputMetadata().setTotalImpressions(output.getOutputMetadata().getTotalImpressions() * factor);
     }
 

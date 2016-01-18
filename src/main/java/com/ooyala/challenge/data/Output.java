@@ -12,22 +12,22 @@ import java.util.List;
  */
 public class Output {
 
-    private Collection<OutputData> outputData;
+    private Collection<OutputItem> outputItem;
     private OutputMetadata outputMetadata;
 
     public Output() {
-        this.outputData = new ArrayList<>();
+        this.outputItem = new ArrayList<>();
         this.outputMetadata = new OutputMetadata(0, 0);
     }
 
-    public Output(Collection<OutputData> outputData, OutputMetadata outputMetadata) {
-        this.outputData = outputData;
+    public Output(Collection<OutputItem> outputItem, OutputMetadata outputMetadata) {
+        this.outputItem = outputItem;
         this.outputMetadata = outputMetadata;
     }
 
     @JsonProperty
-    public void setOutputData(List<OutputData> outputData) {
-        this.outputData = outputData;
+    public void setOutputItem(List<OutputItem> outputItem) {
+        this.outputItem = outputItem;
     }
 
     @JsonProperty
@@ -36,8 +36,8 @@ public class Output {
     }
 
     @JsonProperty
-    public Collection<OutputData> getOutputData() {
-        return outputData;
+    public Collection<OutputItem> getOutputItem() {
+        return outputItem;
     }
 
     @JsonProperty
@@ -53,21 +53,21 @@ public class Output {
 
         Output output = (Output) o;
 
-        if (outputData != null ? !outputData.equals(output.outputData) : output.outputData != null)
+        if (outputItem != null ? !outputItem.equals(output.outputItem) : output.outputItem != null)
             return false;
         return !(outputMetadata != null ? !outputMetadata.equals(output.outputMetadata) : output.outputMetadata != null);
 
     }
 
     @Override public int hashCode() {
-        int result = outputData != null ? outputData.hashCode() : 0;
+        int result = outputItem != null ? outputItem.hashCode() : 0;
         result = 31 * result + (outputMetadata != null ? outputMetadata.hashCode() : 0);
         return result;
     }
 
     @Override public String toString() {
         StringBuilder bldr = new StringBuilder();
-        for (OutputData out : outputData) {
+        for (OutputItem out : outputItem) {
             bldr.append(out.toString() + "\n");
         }
         bldr.append(outputMetadata);

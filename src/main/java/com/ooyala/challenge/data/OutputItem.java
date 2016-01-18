@@ -6,25 +6,33 @@ import com.fasterxml.jackson.annotation.JsonProperty;
  * Combined Internal and DTO output object.
  * see @link(Input) class
  */
-public class OutputData {
+public class OutputItem {
 
     private String companyName;
     private long numberOfCampains;
     private long totalImpression;
     private long totalRevenue;
 
-    public OutputData(String companyName, long numberOfCampains, long totalImpression, long totalRevenue) {
+    public OutputItem(String companyName, long numberOfCampains, long totalImpression, long totalRevenue) {
         this.companyName = companyName;
         this.numberOfCampains = numberOfCampains;
         this.totalImpression = totalImpression;
         this.totalRevenue = totalRevenue;
     }
 
-    public OutputData() {
+    public OutputItem() {
     }
 
     public void incCampains() {
         numberOfCampains += 1;
+    }
+
+    public void increaseTotalImpressions(long impressions) {
+        totalImpression += impressions;
+    }
+
+    public void increaseTotalRevenue(long revenue) {
+        totalRevenue += revenue;
     }
 
     @JsonProperty
@@ -73,7 +81,7 @@ public class OutputData {
         if (o == null || getClass() != o.getClass())
             return false;
 
-        OutputData that = (OutputData) o;
+        OutputItem that = (OutputItem) o;
 
         if (numberOfCampains != that.numberOfCampains)
             return false;
@@ -94,7 +102,7 @@ public class OutputData {
     }
 
     @Override public String toString() {
-        return "OutputData{" +
+        return "OutputItem{" +
             "companyName='" + companyName + '\'' +
             ", numberOfCampains=" + numberOfCampains +
             ", totalImpression=" + totalImpression +

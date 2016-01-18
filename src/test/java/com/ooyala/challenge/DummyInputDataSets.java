@@ -59,14 +59,14 @@ public class DummyInputDataSets {
 
     public static Output dataSetOutput1() {
         OutputMetadata metadata = new OutputMetadata(32000000, 3620);
-        List<OutputData> out = new ArrayList<>();
-        out.add(new OutputData("Acme", 0, 0, 0));
-        out.add(new OutputData("Lorem", 8, 28000000, 3200));
-        out.add(new OutputData("Ipsum", 0, 0, 0));
-        out.add(new OutputData("Dolor", 0, 0, 0));
-        out.add(new OutputData("SIT", 0, 0, 0));
-        out.add(new OutputData("Amet", 2, 3000000, 320));
-        out.add(new OutputData("Mauris", 1, 1000000, 100));
+        List<OutputItem> out = new ArrayList<>();
+        out.add(new OutputItem("Acme", 0, 0, 0));
+        out.add(new OutputItem("Lorem", 8, 28000000, 3200));
+        out.add(new OutputItem("Ipsum", 0, 0, 0));
+        out.add(new OutputItem("Dolor", 0, 0, 0));
+        out.add(new OutputItem("SIT", 0, 0, 0));
+        out.add(new OutputItem("Amet", 2, 3000000, 320));
+        out.add(new OutputItem("Mauris", 1, 1000000, 100));
         return new Output(out, metadata);
     }
 
@@ -191,10 +191,10 @@ public class DummyInputDataSets {
     }
 
     public static Output dummyOutputFromInput(Input input) {
-        List<OutputData> outputData = input.getCompanies().stream().map(company -> new OutputData(company.getName(), 0, 0, 0)).collect(
+        List<OutputItem> outputItem = input.getCompanies().stream().map(company -> new OutputItem(company.getName(), 0, 0, 0)).collect(
             Collectors.toList());
         OutputMetadata outputMetadata = new OutputMetadata(input.getAvailableImpressions(), 0);
-        return new Output(outputData, outputMetadata);
+        return new Output(outputItem, outputMetadata);
     }
 
 }

@@ -40,24 +40,28 @@ public class SequentialRevenueProcessor extends RevenueProcessor implements Proc
             acceptedCompanies[currentImpressions] = companyToAdd;
         }
         OutputMetadata outputMetadata = new OutputMetadata(totalImpressions, totalRevenue);
-        List<OutputData> outputData = gatherCompanies(companies, totalImpressions, acceptedCompanies);
-        return new Output(outputData, outputMetadata);
+        List<OutputItem> outputItem = gatherCompanies(companies, totalImpressions, acceptedCompanies);
+        return new Output(outputItem, outputMetadata);
     }
 
-    private List<OutputData> gatherCompanies(List<Company> companies, int totalImpressions, int[] acceptedCompanies) {
-        List<OutputData> outputData = new ArrayList<>(companies.size());
-        outputData.addAll(companies.stream()
-            .map(company -> new OutputData(company.getName(), 0, company.getNumberOfImpression(), company.getRevenue()))
+    private List<OutputItem> gatherCompanies(List<Company> companies, int totalImpressions, int[] acceptedCompanies) {
+        List<OutputItem> outputItems = new ArrayList<>(companies.size());
+        outputItems.addAll(companies.stream()
+            .map(company -> new OutputItem(company.getName(), 0, 0, 0))
             .collect(Collectors.toList()));
         while (totalImpressions > 0) {
             int companyToAdd = acceptedCompanies[totalImpressions];
-            outputData.get(companyToAdd).incCampains();
-            totalImpressions -= companies.get(companyToAdd).getNumberOfImpression();
+            Company company = companies.get(companyToAdd);
+            OutputItem output = outputItems.get(companyToAdd);
+            increaseOutputValues(output, company);
+            totalImpressions -= company.getNumberOfImpression();
         }
-        outputData.stream().forEach(out -> {
-            out.setTotalImpression(out.getTotalImpression() * out.getNumberOfCampains());
-            out.setTotalRevenue(out.getTotalRevenue() * out.getNumberOfCampains());
-        });
-        return outputData;
+        return outputItems;
+    }
+
+    private void increaseOutputValues(OutputItem outputItem, Company company) {
+        outputItem.incCampains();
+        outputItem.increaseTotalImpressions(company.getNumberOfImpression());
+        outputItem.increaseTotalRevenue(company.getRevenue());
     }
 }
