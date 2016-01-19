@@ -15,6 +15,8 @@ import java.util.List;
 
 /**
  * The controller that is available for usage by external classes and frameworks
+ * <p>
+ * Note: If more than single processor should be used, introduce the factory
  */
 public class RevenueManagerImpl implements RevenueManager {
 
