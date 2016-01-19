@@ -56,7 +56,7 @@ public class RevenueProcessorImplTest {
         Input set4 = DummyInputDataSets.generateRandom(10, 300, 30, 30);
         Output out = p.compute(set4);
         Output out1 = processor.compute(set4);
-//        Assert.assertEquals(out1.getOutputMetadata(), out.getOutputMetadata());
+        Assert.assertEquals(out1.getOutputMetadata(), out.getOutputMetadata());
     }
 
 }

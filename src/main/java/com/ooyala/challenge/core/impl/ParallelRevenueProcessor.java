@@ -49,6 +49,31 @@ public class ParallelRevenueProcessor extends RevenueProcessor implements Proces
         this.nTasks = nTasks;
     }
 
+    /**
+     * Note: This method will produce the list of companies that have number of campains greater than zero
+     * <p>
+     * The algorithm tries to parallelise the knapsack problem:
+     * 1. It splits the task onto n subtasks and sends them to workers.
+     * 2. After worker finished processing its task, it will add the result into the output queue.
+     * 3. The result contains the array[1:max_impressions] and for each impression, the object contains list
+     * of companies that produce this impression number. (This requires a lot of additional space,
+     * but it is necessary for a combine step)
+     * <p>
+     * 4. On the combine step, the worker takes two tasks from a queue and tries to find an optimal solution
+     * for their combination. It is quite tricky to do
+     * (because for each impression it can be any combination of values from result1 and result2.
+     * e.g.
+     * For computing an optimal value for a value 5, there can be next possibilities:
+     * r1 0 1 2 3 4 5
+     * <p>
+     * r2 5 4 3 2 1 0
+     * <p>
+     * As a result, in order to find an optimal value, it is required to go through all impressions until current
+     * So the complexity of this procedure is really really bad:
+     * (0+1+2+..+T) = T^2/2 = O(T^2)
+     * )
+     * When all results are combined, the answer is put into result queue
+     */
     @Override protected Output compute(List<Company> companies, int availableImpressions) {
         List<Company>[] tasksData = split(companies, nTasks);
         BlockingDeque<Result> outputQueue = new LinkedBlockingDeque<>(nTasks + 2);
@@ -268,19 +293,15 @@ public class ParallelRevenueProcessor extends RevenueProcessor implements Proces
                     l++;
                     r--;
                 }
-                if (maxL == 0) {
-                    combined.capacities[cap] = r2.capacities[maxR];
-                } else {
-                    combined.capacities[cap] = combine(r1.capacities[maxL], r2.capacities[maxR]);
-                }
+                combined.capacities[cap] = combine(r1.capacities[maxL], r2.capacities[maxR]);
                 if (maxRevenue < maxCurrentRevenue) {
                     maxRevenue = maxCurrentRevenue;
                     maxCapacity = cap;
                 }
             }
-            r1.maxRevenue = maxRevenue;
-            r1.totalCapacity = maxCapacity;
-            return r1;
+            combined.maxRevenue = maxRevenue;
+            combined.totalCapacity = maxCapacity;
+            return combined;
         }
 
         private Capacity combine(Capacity c1, Capacity c2) {
@@ -294,6 +315,12 @@ public class ParallelRevenueProcessor extends RevenueProcessor implements Proces
         Capacity[] capacities;
         int maxRevenue;
         int totalCapacity;
+
+        public Result(Capacity[] capacities, int maxRevenue, int totalCapacity) {
+            this.capacities = capacities;
+            this.maxRevenue = maxRevenue;
+            this.totalCapacity = totalCapacity;
+        }
 
         public Result(Capacity[] capacities) {
             this.capacities = capacities;
