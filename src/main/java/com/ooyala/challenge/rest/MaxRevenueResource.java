@@ -44,7 +44,7 @@ public class MaxRevenueResource {
     public Output receiveDate(Input data) {
         try {
             return revenueManager.compute(data);
-        } catch (CacheException | ValidationException e) {
+        } catch (ValidationException e) {
             throw new WebApplicationException(e.getMessage(), Response.Status.BAD_REQUEST);
         }
     }

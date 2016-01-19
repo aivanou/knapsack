@@ -29,7 +29,7 @@ public class RevenueManagerImpl implements RevenueManager {
     }
 
     @Override
-    public Output compute(Input input) throws CacheException, ValidationException {
+    public Output compute(Input input) throws ValidationException {
         ValidationError errors = validate(input);
         if (!errors.getMessages().isEmpty()) {
             throw new ValidationException(errors.toString());
@@ -54,23 +54,22 @@ public class RevenueManagerImpl implements RevenueManager {
             callback.error(errors);
             return;
         }
-        Output output;
-        try {
-            output = internalCompute(data);
-        } catch (CacheException e) {
-            LOGGER.error(e.getLocalizedMessage());
-            callback.error(errors);
-            return;
-        }
+        Output output = internalCompute(data);
         callback.success(output);
     }
 
-    private Output internalCompute(Input input) throws CacheException {
-        Output output = cacheManager.retrieve(input);
+    private Output internalCompute(Input input) {
+        Output output = null;
+        try {
+            output = cacheManager.retrieve(input);
+        } catch (CacheException e) {
+            /**If the external system is used as a cache, we should
+             * signal the error to some service or use programs like Zabbix*/
+            LOGGER.error(e.getLocalizedMessage());
+        }
         if (output == null) {
             output = processor.compute(input);
             cacheManager.insert(input, output);
-            return output;
         }
         return output;
     }

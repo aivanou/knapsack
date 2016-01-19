@@ -10,7 +10,7 @@ import javax.ws.rs.container.AsyncResponse;
  */
 public interface RevenueManager {
 
-    Output compute(Input data) throws CacheException, ValidationException;
+    Output compute(Input data) throws ValidationException;
 
     void computeAsync(Input data, ManagerCallback callback);
 }
