@@ -11,7 +11,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
+import java.util.concurrent.*;
 
 /**
  * The controller that is available for usage by external classes and frameworks
@@ -22,12 +24,18 @@ public class RevenueManagerImpl implements RevenueManager {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(RevenueManagerImpl.class);
 
-    private CacheManager<Input, Output> cacheManager;
-    private Processor processor;
+    private final CacheManager<Input, Output> cacheManager;
+    private final Processor processor;
+    private final ExecutorService exec;
+    private final BlockingDeque<Task> workQueue;
+    private static int MAX_WAIT_FOR_COMPLETION_SECONDS = 60;
 
-    public RevenueManagerImpl(CacheManager<Input, Output> cacheManager, Processor processor) {
+    public RevenueManagerImpl(CacheManager<Input, Output> cacheManager,
+        Processor processor, ExecutorService exec) {
+        this.exec = exec;
         this.cacheManager = cacheManager;
         this.processor = processor;
+        this.workQueue = new LinkedBlockingDeque<>();
     }
 
     @Override
@@ -56,8 +64,13 @@ public class RevenueManagerImpl implements RevenueManager {
             callback.error(errors);
             return;
         }
-        Output output = internalCompute(data);
-        callback.success(output);
+        workQueue.add(new Task(data, callback));
+    }
+
+    @Override public void start(int nWorkers) {
+        for (int i = 0; i < nWorkers; ++i) {
+            exec.submit(new Worker());
+        }
     }
 
     private Output internalCompute(Input input) {
@@ -90,5 +103,61 @@ public class RevenueManagerImpl implements RevenueManager {
             }
         }
         return new ValidationError(errors);
+    }
+
+    private class Worker implements Runnable {
+
+        private volatile boolean interrupt = false;
+        private static final int MAX_WAIT_SECONDS = 2;
+
+        @Override public void run() {
+            while (!interrupt) {
+                Task task = waitForTask();
+                if (interrupt) {
+                    return;
+                }
+                List<Callable<Output>> toExecute = Arrays.asList(() -> processor.compute(task.input));
+                try {
+                    Output result = exec.invokeAny(toExecute, MAX_WAIT_FOR_COMPLETION_SECONDS, TimeUnit.SECONDS);
+                    task.callback.success(result);
+                } catch (InterruptedException | ExecutionException | TimeoutException e) {
+                    LOGGER.error(e.getLocalizedMessage());
+                    task.callback.error(new ValidationError(e.getMessage()));
+                }
+            }
+        }
+
+        private Task waitForTask() {
+            Task task = null;
+            try {
+                while ((task = workQueue.poll(MAX_WAIT_SECONDS, TimeUnit.SECONDS)) == null) {
+                    if (interrupt) {
+                        return null;
+                    }
+                }
+            } catch (InterruptedException e) {
+                interrupt = true;
+                return null;
+            }
+            return task;
+        }
+
+        public boolean isInterrupt() {
+            return interrupt;
+        }
+
+        public void setInterrupt(boolean interrupt) {
+            this.interrupt = interrupt;
+        }
+    }
+
+    private class Task {
+        private Input input;
+        private ManagerCallback callback;
+
+        public Task(Input input, ManagerCallback callback) {
+            this.input = input;
+            this.callback = callback;
+        }
     }
 }

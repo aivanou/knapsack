@@ -1,5 +1,6 @@
 package com.ooyala.challenge.data;
 
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -9,6 +10,11 @@ public class ValidationError {
 
     public ValidationError(List<String> messages) {
         this.messages = messages;
+    }
+
+    public ValidationError(String message) {
+        this.messages = new ArrayList<>();
+        messages.add(message);
     }
 
     public void addMessage(String msg) {

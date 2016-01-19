@@ -12,6 +12,9 @@ import io.dropwizard.Application;
 import io.dropwizard.setup.Bootstrap;
 import io.dropwizard.setup.Environment;
 
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+
 /**
  */
 public class MaxRevenueApplication extends Application<MaxRevenueConfiguration> {
@@ -32,7 +35,9 @@ public class MaxRevenueApplication extends Application<MaxRevenueConfiguration> 
     public void run(MaxRevenueConfiguration configuration, Environment environment) {
         Processor processor = new SequentialRevenueProcessor();
         CacheManager<Input, Output> cacheManager = new InternalCacheManager();
-        RevenueManager revenueManager = new RevenueManagerImpl(cacheManager, processor);
+        ExecutorService exec = Executors.newCachedThreadPool();
+        RevenueManager revenueManager = new RevenueManagerImpl(cacheManager, processor, exec);
+        revenueManager.start(4);
         final MaxRevenueResource resource = new MaxRevenueResource(revenueManager);
         environment.jersey().register(resource);
     }

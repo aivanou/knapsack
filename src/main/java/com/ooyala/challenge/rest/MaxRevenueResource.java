@@ -1,6 +1,5 @@
 package com.ooyala.challenge.rest;
 
-import com.ooyala.challenge.cache.CacheException;
 import com.ooyala.challenge.core.ManagerCallback;
 import com.ooyala.challenge.core.RevenueManager;
 import com.ooyala.challenge.core.ValidationException;

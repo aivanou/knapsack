@@ -10,4 +10,6 @@ public interface RevenueManager {
     Output compute(Input data) throws ValidationException;
 
     void computeAsync(Input data, ManagerCallback callback);
+
+    void start(int nWorkers);
 }

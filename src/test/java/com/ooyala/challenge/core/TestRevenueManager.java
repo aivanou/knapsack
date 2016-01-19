@@ -1,6 +1,5 @@
 package com.ooyala.challenge.core;
 
-
 import com.ooyala.challenge.DummyInputDataSets;
 import com.ooyala.challenge.cache.CacheException;
 import com.ooyala.challenge.cache.CacheManager;
@@ -11,6 +10,7 @@ import org.junit.Assert;
 import org.junit.Test;
 
 import java.io.IOException;
+import java.util.concurrent.ExecutorService;
 
 import static org.mockito.Mockito.*;
 
@@ -20,7 +20,8 @@ public class TestRevenueManager {
 
     CacheManager<Input, Output> cacheMock = mock(CacheManager.class);
     Processor processorMock = mock(Processor.class);
-    RevenueManager revenueManager = new RevenueManagerImpl(cacheMock, processorMock);
+    ExecutorService execMock = mock(ExecutorService.class);
+    RevenueManager revenueManager = new RevenueManagerImpl(cacheMock, processorMock, execMock);
 
     @Test
     public void testRevenueComputation() throws IOException {
