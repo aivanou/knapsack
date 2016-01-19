@@ -12,5 +12,5 @@ public interface RevenueManager {
 
     Output compute(Input data) throws CacheException, ValidationException;
 
-    void computeAsync(Input data, ManagerCallback callback) throws CacheException;
+    void computeAsync(Input data, ManagerCallback callback);
 }

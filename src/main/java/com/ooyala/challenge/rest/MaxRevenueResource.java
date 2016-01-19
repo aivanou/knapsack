@@ -24,7 +24,7 @@ public class MaxRevenueResource {
     @Path("/asyncCompute")
     @Consumes(MediaType.APPLICATION_JSON)
     @Produces(MediaType.APPLICATION_JSON)
-    public void receiveDate(Input data, @Suspended AsyncResponse asyncResponse) throws CacheException {
+    public void receiveDate(Input data, @Suspended AsyncResponse asyncResponse) {
         revenueManager.computeAsync(
             data, new ManagerCallback() {
                 @Override public void success(Output out) {
