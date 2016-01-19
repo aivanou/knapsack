@@ -29,13 +29,14 @@ public class RevenueManagerImpl implements RevenueManager {
     private final ExecutorService exec;
     private final BlockingDeque<Task> workQueue;
     private static int MAX_WAIT_FOR_COMPLETION_SECONDS = 60;
+    private static int MAX_WAIT_FOR_TERMINATION_SECONDS = 5;
 
     public RevenueManagerImpl(CacheManager<Input, Output> cacheManager,
-        Processor processor, ExecutorService exec) {
+        Processor processor, ExecutorService exec, int maxQueueSize) {
         this.exec = exec;
         this.cacheManager = cacheManager;
         this.processor = processor;
-        this.workQueue = new LinkedBlockingDeque<>();
+        this.workQueue = new LinkedBlockingDeque<>(maxQueueSize);
     }
 
     @Override
@@ -64,12 +65,23 @@ public class RevenueManagerImpl implements RevenueManager {
             callback.error(errors);
             return;
         }
-        workQueue.add(new Task(data, callback));
+        if (!workQueue.offer(new Task(data, callback, System.nanoTime()))) {
+            callback.error(new ValidationError("Sorry. There are too many tasks right now."));
+        }
     }
 
     @Override public void start(int nWorkers) {
         for (int i = 0; i < nWorkers; ++i) {
             exec.submit(new Worker());
+        }
+    }
+
+    @Override public void stop() {
+        try {
+            exec.awaitTermination(MAX_WAIT_FOR_TERMINATION_SECONDS, TimeUnit.SECONDS);
+        } catch (InterruptedException e) {
+            List<Runnable> tasks = exec.shutdownNow();
+            LOGGER.warn("Shutting down was not successful. Amount of tasks that stopped: " + tasks.size());
         }
     }
 
@@ -116,6 +128,10 @@ public class RevenueManagerImpl implements RevenueManager {
                 if (interrupt) {
                     return;
                 }
+                if (isTimeExceeded(task.timeAdded)) {
+                    task.callback.error(new ValidationError("Sorry. Service was too busy to compute"));
+                    continue;
+                }
                 List<Callable<Output>> toExecute = Arrays.asList(() -> processor.compute(task.input));
                 try {
                     Output result = exec.invokeAny(toExecute, MAX_WAIT_FOR_COMPLETION_SECONDS, TimeUnit.SECONDS);
@@ -125,6 +141,10 @@ public class RevenueManagerImpl implements RevenueManager {
                     task.callback.error(new ValidationError(e.getMessage()));
                 }
             }
+        }
+
+        private boolean isTimeExceeded(long startTime) {
+            return (System.nanoTime() - startTime) / 1000000000.0 > MAX_WAIT_FOR_COMPLETION_SECONDS;
         }
 
         private Task waitForTask() {
@@ -154,10 +174,12 @@ public class RevenueManagerImpl implements RevenueManager {
     private class Task {
         private Input input;
         private ManagerCallback callback;
+        private long timeAdded;
 
-        public Task(Input input, ManagerCallback callback) {
+        public Task(Input input, ManagerCallback callback, long timeAdded) {
             this.input = input;
             this.callback = callback;
+            this.timeAdded = timeAdded;
         }
     }
 }

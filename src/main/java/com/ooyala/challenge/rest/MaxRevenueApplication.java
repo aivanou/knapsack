@@ -35,9 +35,11 @@ public class MaxRevenueApplication extends Application<MaxRevenueConfiguration> 
     public void run(MaxRevenueConfiguration configuration, Environment environment) {
         Processor processor = new SequentialRevenueProcessor();
         CacheManager<Input, Output> cacheManager = new InternalCacheManager();
-        ExecutorService exec = Executors.newCachedThreadPool();
-        RevenueManager revenueManager = new RevenueManagerImpl(cacheManager, processor, exec);
-        revenueManager.start(4);
+        int nWorkers = 4;
+        int maxQueueSize = 1000;
+        ExecutorService exec = Executors.newFixedThreadPool(nWorkers * 2);
+        RevenueManager revenueManager = new RevenueManagerImpl(cacheManager, processor, exec, maxQueueSize);
+        environment.lifecycle().manage(new RevenueManagerService(revenueManager, nWorkers));
         final MaxRevenueResource resource = new MaxRevenueResource(revenueManager);
         environment.jersey().register(resource);
     }

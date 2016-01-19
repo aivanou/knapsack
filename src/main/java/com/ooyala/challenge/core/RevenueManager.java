@@ -12,4 +12,6 @@ public interface RevenueManager {
     void computeAsync(Input data, ManagerCallback callback);
 
     void start(int nWorkers);
+
+    void stop();
 }
