@@ -72,7 +72,7 @@ public class RevenueManagerImpl implements RevenueManager {
 
     @Override public void start(int nWorkers) {
         for (int i = 0; i < nWorkers; ++i) {
-            exec.submit(new Worker());
+            exec.execute(new Worker());
         }
     }
 

@@ -39,6 +39,30 @@ public class DummyInputDataSets {
         return rand.nextInt(max - 1) + 1;
     }
 
+    public static Input dataSet6() {
+        List<Company> companies = new ArrayList<>(10);
+        companies.add(new Company("1", 1, 2));
+        companies.add(new Company("2", 2, 3));
+        companies.add(new Company("3", 3, 4));
+        companies.add(new Company("4", 11, 20));
+        companies.add(new Company("5", 19, 32));
+        companies.add(new Company("6", 32, 2));
+        companies.add(new Company("7", 122, 42));
+        companies.add(new Company("8", 53, 27));
+        companies.add(new Company("9", 27, 53));
+        companies.add(new Company("10", 1, 2));
+        return new Input(1000000, companies);
+    }
+
+    public static Input dataSet7() {
+        List<Company> companies = new ArrayList<>(10);
+        companies.add(new Company("1", 1, 0));
+        companies.add(new Company("2", 2, 0));
+        companies.add(new Company("3", 3, 0));
+        companies.add(new Company("4", 11, 0));
+        return new Input(1000000, companies);
+    }
+
     public static Input dataSet1() {
         try {
             return deserialize(
@@ -51,6 +75,24 @@ public class DummyInputDataSets {
                         "SIT,10000000,1000\n" +
                         "Amet,1500000,160\n" +
                         "Mauris,1000000,100"));
+        } catch (IOException e) {
+            //ignore
+        }
+        return null;
+    }
+
+    public static Input dataSet5() {
+        try {
+            return deserialize(
+                new StringReader(
+                    "1000000\n" +
+                        "Acme,1,2\n" +
+                        "Lorem,2,4\n" +
+                        "Ipsum,3,2\n" +
+                        "Dolor,4,7\n" +
+                        "SIT,5,10\n" +
+                        "Amet,6,10\n" +
+                        "Mauris,7,10"));
         } catch (IOException e) {
             //ignore
         }

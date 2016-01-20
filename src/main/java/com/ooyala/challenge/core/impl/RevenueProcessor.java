@@ -1,10 +1,8 @@
 package com.ooyala.challenge.core.impl;
 
 import com.ooyala.challenge.core.Processor;
-import com.ooyala.challenge.data.Company;
-import com.ooyala.challenge.data.Input;
-import com.ooyala.challenge.data.Output;
-import com.ooyala.challenge.data.OutputItem;
+import com.ooyala.challenge.data.*;
+import com.sun.corba.se.impl.orbutil.ObjectUtility;
 
 import java.util.ArrayList;
 import java.util.Iterator;
@@ -18,6 +16,11 @@ public abstract class RevenueProcessor implements Processor {
     public Output compute(Input input) {
         List<Company> removedCompanies = removeCompaniesWithZeroRevenue(input);
         int factor = normalise(input);
+        if (input.getCompanies().isEmpty()) {
+            Output output = new Output(new ArrayList<>(), new OutputMetadata(0, 0));
+            removedCompanies.stream().forEach(company -> output.getOutputItem().add(new OutputItem(company.getName(), 0, 0, 0)));
+            return output;
+        }
         Output output = compute(input.getCompanies(), input.getAvailableImpressions());
         denormalise(output, factor);
         removedCompanies.stream().forEach(company -> output.getOutputItem().add(new OutputItem(company.getName(), 0, 0, 0)));

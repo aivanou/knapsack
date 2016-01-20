@@ -49,6 +49,31 @@ public class RevenueProcessorImplTest {
     }
 
     @Test
+    public void testCompute4() {
+        Input set2 = DummyInputDataSets.dataSet2();
+        Output output = processor.compute(set2);
+        Assert.assertEquals(output.getOutputMetadata().getTotalImpressions(), 2000000000);
+        Assert.assertEquals(output.getOutputMetadata().getTotalRevenue(), 13330000);
+    }
+
+    @Test
+    public void testCompute5() {
+        Input set6 = DummyInputDataSets.dataSet6();
+        Output output = processor.compute(set6);
+        Assert.assertEquals(output.getOutputMetadata().getTotalImpressions(), 1000000);
+        Assert.assertEquals(output.getOutputMetadata().getTotalRevenue(), 2000000);
+    }
+
+    @Test
+    public void testCompute6() {
+        Input set7 = DummyInputDataSets.dataSet7();
+        Output output = processor.compute(set7);
+        Assert.assertEquals(output.getOutputMetadata().getTotalImpressions(), 0);
+        Assert.assertEquals(output.getOutputMetadata().getTotalRevenue(), 0);
+        Assert.assertEquals(output.getOutputItem().size(), 4);
+    }
+
+    @Test
     public void testParallel1() {
         Executor exec = Executors.newCachedThreadPool();
         int tasks = 4;
