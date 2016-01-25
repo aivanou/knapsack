@@ -20,7 +20,7 @@ public class TestRevenueManager {
 
     CacheManager<Input, Output> cacheMock = mock(CacheManager.class);
     Processor processorMock = mock(Processor.class);
-    ExecutorService execMock = mock(ExecutorService.class);
+    ServiceManager execMock = mock(ServiceManager.class);
     RevenueManager revenueManager = new RevenueManagerImpl(cacheMock, processorMock, execMock, 1);
 
     @Test

@@ -14,6 +14,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.stream.Collectors;
 
 /**
  * Parallel implementation of unbounded knapsack problem.
@@ -75,14 +76,14 @@ public class ParallelRevenueProcessor extends RevenueProcessor implements Proces
      * When all results are combined, the answer is put into result queue
      */
     @Override protected Output compute(List<Company> companies, int availableImpressions) {
-        List<Company>[] tasksData = split(companies, nTasks);
+        Segment[] tasksData = split(companies, nTasks);
         BlockingDeque<Result> outputQueue = new LinkedBlockingDeque<>(nTasks + 2);
         BlockingDeque<Result> resultQueue = new LinkedBlockingDeque<>(1);
         AtomicInteger processingTasks = new AtomicInteger(0);
         CountDownLatch barrier = new CountDownLatch(nTasks);
 
         for (int i = 0; i < nTasks; ++i) {
-            executor.execute(new ComputeTask(tasksData[i], availableImpressions, barrier, resultQueue, outputQueue, processingTasks));
+            executor.execute(new ComputeTask(companies, tasksData[i], availableImpressions, barrier, resultQueue, outputQueue, processingTasks));
         }
         Result result = null;
         try {
@@ -90,56 +91,62 @@ public class ParallelRevenueProcessor extends RevenueProcessor implements Proces
         } catch (InterruptedException e) {
             e.printStackTrace();
         }
-        Map<String, OutputItem> reduce = new HashMap<>();
-        result.capacities[result.totalCapacity].companies.stream().forEach(
-            company -> {
-                if (!reduce.containsKey(company.getName())) {
-                    reduce.put(company.getName(), new OutputItem(company.getName(), 1, company.getNumberOfImpression(), company.getRevenue()));
-                } else {
-                    OutputItem out = reduce.get(company.getName());
-                    out.incCampains();
-                    out.setTotalImpression(out.getTotalImpression() + company.getNumberOfImpression());
-                    out.setTotalRevenue(out.getTotalRevenue() + company.getRevenue());
-                }
-            });
-        return new Output(reduce.values(), new OutputMetadata(result.totalCapacity, result.maxRevenue));
+        List<OutputItem> items = gatherCompanies(result, companies);
+        return new Output(items, new OutputMetadata(result.totalCapacity, result.maxRevenue));
     }
 
-    private List<Company>[] split(List<Company> companies, int nTasks) {
-        List<Company>[] taskData = new List[nTasks];
+    private List<OutputItem> gatherCompanies(Result result, List<Company> companies) {
+        List<OutputItem> items = new ArrayList<>(companies.size());
+        items.addAll(companies.stream()
+            .map(company -> new OutputItem(company.getName(), 0, 0, 0))
+            .collect(Collectors.toList()));
+        int curr = result.totalCapacity;
+        while (curr > 0) {
+            int companyIndex = result.companies[curr];
+            Company company = companies.get(companyIndex);
+            OutputItem item = items.get(companyIndex);
+            increaseOutputValues(item, company);
+            curr -= company.getNumberOfImpression();
+        }
+        return items;
+    }
+
+    private void increaseOutputValues(OutputItem outputItem, Company company) {
+        outputItem.incCampains();
+        outputItem.increaseTotalImpressions(company.getNumberOfImpression());
+        outputItem.increaseTotalRevenue(company.getRevenue());
+    }
+
+    private Segment[] split(List<Company> companies, int nTasks) {
+        Segment[] taskData = new Segment[nTasks];
         int batch = companies.size() / nTasks;
         for (int i = 0; i < nTasks - 1; ++i) {
-            taskData[i] = new ArrayList<>();
-            for (int j = 0; j < batch; ++j) {
-                taskData[i].add(companies.get(i * nTasks + j));
-            }
+            int left = i * batch;
+            int right = i * batch + batch;
+            taskData[i] = new Segment(left, right);
         }
-        taskData[nTasks - 1] = new ArrayList<>();
-        for (int i = 0; i < batch + companies.size() % nTasks; ++i) {
-            taskData[nTasks - 1].add(companies.get((nTasks - 1) * batch + i));
-        }
+        taskData[nTasks - 1] = new Segment((nTasks - 1) * batch, companies.size());
         return taskData;
     }
 
-    private Result internalCompute(List<Company> companies, int availableImpressions) {
-        Result result = new Result(new Capacity[availableImpressions + 1]);
-        result.capacities[0] = new Capacity(new ArrayList<>(), 0);
+    private Result internalCompute(List<Company> companies, int availableImpressions, Segment segment) {
+        int[] revenues = new int[availableImpressions + 1];
         int maxCapacity = 0;
         int maxRevenue = 0;
         int[] acceptedCompanies = new int[availableImpressions + 1];
         for (int capacity = 1; capacity <= availableImpressions; ++capacity) {
-            result.capacities[capacity] = new Capacity(new ArrayList<>(), 0);
             int maxCurrentRevenue = 0;
-            for (int i = 0; i < companies.size(); ++i) {
+            acceptedCompanies[capacity] = -1;
+            for (int i = segment.left; i < segment.right; ++i) {
                 Company company = companies.get(i);
                 if (company.getNumberOfImpression() > capacity) {
                     continue;
                 }
-                int currentRevenue = result.capacities[capacity - company.getNumberOfImpression()].revenue + company.getRevenue();
+                int currentRevenue = revenues[capacity - company.getNumberOfImpression()] + company.getRevenue();
                 if (maxCurrentRevenue < currentRevenue) {
                     maxCurrentRevenue = currentRevenue;
                     acceptedCompanies[capacity] = i;
-                    result.capacities[capacity].revenue = maxCurrentRevenue;
+                    revenues[capacity] = maxCurrentRevenue;
                 }
             }
             if (maxRevenue < maxCurrentRevenue) {
@@ -147,35 +154,14 @@ public class ParallelRevenueProcessor extends RevenueProcessor implements Proces
                 maxCapacity = capacity;
             }
         }
-        result.maxRevenue = maxRevenue;
-        result.totalCapacity = maxCapacity;
-        gatherCompanies(result, companies, acceptedCompanies);
-        return result;
-    }
-
-    private void gatherCompanies(Result result, List<Company> companies, int[] acceptedCompanies) {
-        for (int i = 1; i < acceptedCompanies.length; ++i) {
-            gatherCompanies(result, companies, acceptedCompanies, i);
-        }
-    }
-
-    private void gatherCompanies(Result result, List<Company> companies, int[] acceptedCompanies, int current) {
-        Capacity currentCapacity = result.capacities[current];
-        while (current > 0) {
-            if (!result.capacities[current].companies.isEmpty()) {
-                currentCapacity.companies.addAll(result.capacities[current].companies);
-                return;
-            }
-            Company company = companies.get(acceptedCompanies[current]);
-            currentCapacity.companies.add(company);
-            current -= company.getNumberOfImpression();
-        }
+        return new Result(revenues, acceptedCompanies, maxRevenue, maxCapacity);
     }
 
     private final Object lock = new Object();
 
     private class ComputeTask implements Runnable {
         private List<Company> companies;
+        private Segment segment;
         private int availableImpressions;
         private BlockingDeque<Result> outputQueue;
         private BlockingDeque<Result> resultQueue;
@@ -187,9 +173,10 @@ public class ParallelRevenueProcessor extends RevenueProcessor implements Proces
         private final int WAIT_TIME = 2;
         private volatile AtomicInteger processingTasks;
 
-        public ComputeTask(List<Company> companies, int availableImpressions, CountDownLatch barrier,
+        public ComputeTask(List<Company> companies, Segment segment, int availableImpressions, CountDownLatch barrier,
             BlockingDeque<Result> resultQueue, BlockingDeque<Result> outputQueue, AtomicInteger processingTasks) {
             this.companies = companies;
+            this.segment = segment;
             this.availableImpressions = availableImpressions;
             this.barrier = barrier;
             this.resultQueue = resultQueue;
@@ -198,7 +185,7 @@ public class ParallelRevenueProcessor extends RevenueProcessor implements Proces
         }
 
         @Override public void run() {
-            Result result = internalCompute(companies, availableImpressions);
+            Result result = internalCompute(companies, availableImpressions, segment);
             outputQueue.add(result);
             barrier.countDown();
             waitForAllTasksToFinish();
@@ -273,18 +260,18 @@ public class ParallelRevenueProcessor extends RevenueProcessor implements Proces
         }
 
         private Result combine(Result r1, Result r2) {
-            Result combined = new Result(new Capacity[r1.capacities.length]);
-            combined.capacities[0] = new Capacity(new ArrayList<>(), 0);
+            int[] combinedRevenues = new int[r1.revenues.length];
+            int[] combinedCompanies = new int[r1.revenues.length];
             int maxRevenue = 0;
             int maxCapacity = 0;
-            for (int cap = 1; cap < r1.capacities.length; ++cap) {
+            for (int cap = 1; cap < combinedRevenues.length; ++cap) {
                 int l = 0;
                 int r = cap;
                 int maxL = 0;
                 int maxR = 0;
                 int maxCurrentRevenue = 0;
                 while (l <= cap && r >= 0) {
-                    int newRevenue = r1.capacities[l].revenue + r2.capacities[r].revenue;
+                    int newRevenue = r1.revenues[l] + r2.revenues[r];
                     if (maxCurrentRevenue < newRevenue) {
                         maxCurrentRevenue = newRevenue;
                         maxL = l;
@@ -293,47 +280,68 @@ public class ParallelRevenueProcessor extends RevenueProcessor implements Proces
                     l++;
                     r--;
                 }
-                combined.capacities[cap] = combine(r1.capacities[maxL], r2.capacities[maxR]);
+                combinedRevenues[cap] = maxCurrentRevenue;
+                if (maxCurrentRevenue != 0) {
+                    combine(combinedCompanies, r1, r2, maxL, maxR, companies);
+                } else {
+                    combinedCompanies[cap] = -1;
+                }
                 if (maxRevenue < maxCurrentRevenue) {
                     maxRevenue = maxCurrentRevenue;
                     maxCapacity = cap;
                 }
             }
-            combined.maxRevenue = maxRevenue;
-            combined.totalCapacity = maxCapacity;
-            return combined;
+            return new Result(combinedRevenues, combinedCompanies, maxRevenue, maxCapacity);
         }
 
-        private Capacity combine(Capacity c1, Capacity c2) {
-            Capacity combined = new Capacity(c1.companies, c1.revenue + c2.revenue);
-            combined.companies.addAll(c2.companies);
-            return combined;
+        private void combine(int[] combinedCompanies, Result r1, Result r2, int l, int r, List<Company> companies) {
+            int capacity = l + r;
+            int curr = l;
+            while (curr > 0) {
+                int companyIndex = r1.companies[curr];
+                if (companyIndex == -1) {
+                    combinedCompanies[curr] = -1;
+                    break;
+                }
+                Company company = companies.get(companyIndex);
+                combinedCompanies[curr] = companyIndex;
+                curr -= company.getNumberOfImpression();
+            }
+            curr = r;
+            while (curr > 0) {
+                int companyIndex = r2.companies[curr];
+                if (companyIndex == -1) {
+                    combinedCompanies[capacity - curr] = -1;
+                    break;
+                }
+                Company company = companies.get(companyIndex);
+                combinedCompanies[capacity - curr] = companyIndex;
+                curr -= company.getNumberOfImpression();
+            }
         }
     }
 
     private class Result {
-        Capacity[] capacities;
+        int[] revenues;
+        int[] companies;
         int maxRevenue;
         int totalCapacity;
 
-        public Result(Capacity[] capacities, int maxRevenue, int totalCapacity) {
-            this.capacities = capacities;
+        public Result(int[] revenues, int[] companies, int maxRevenue, int totalCapacity) {
+            this.revenues = revenues;
+            this.companies = companies;
             this.maxRevenue = maxRevenue;
             this.totalCapacity = totalCapacity;
         }
-
-        public Result(Capacity[] capacities) {
-            this.capacities = capacities;
-        }
     }
 
-    private class Capacity {
-        private List<Company> companies;
-        private int revenue;
+    private class Segment {
+        int left;
+        int right;
 
-        public Capacity(List<Company> companies, int capacity) {
-            this.companies = companies;
-            this.revenue = capacity;
+        public Segment(int left, int right) {
+            this.left = left;
+            this.right = right;
         }
     }
 }

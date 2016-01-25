@@ -2,10 +2,7 @@ package com.ooyala.challenge.core.impl;
 
 import com.ooyala.challenge.cache.CacheException;
 import com.ooyala.challenge.cache.CacheManager;
-import com.ooyala.challenge.core.ManagerCallback;
-import com.ooyala.challenge.core.RevenueManager;
-import com.ooyala.challenge.core.Processor;
-import com.ooyala.challenge.core.ValidationException;
+import com.ooyala.challenge.core.*;
 import com.ooyala.challenge.data.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -26,14 +23,14 @@ public class RevenueManagerImpl implements RevenueManager {
 
     private final CacheManager<Input, Output> cacheManager;
     private final Processor processor;
-    private final ExecutorService exec;
+    private ServiceManager serviceManager;
     private final BlockingDeque<Task> workQueue;
     private static int MAX_WAIT_FOR_COMPLETION_SECONDS = 60;
     private static int MAX_WAIT_FOR_TERMINATION_SECONDS = 5;
 
     public RevenueManagerImpl(CacheManager<Input, Output> cacheManager,
-        Processor processor, ExecutorService exec, int maxQueueSize) {
-        this.exec = exec;
+        Processor processor, ServiceManager serviceManager, int maxQueueSize) {
+        this.serviceManager = serviceManager;
         this.cacheManager = cacheManager;
         this.processor = processor;
         this.workQueue = new LinkedBlockingDeque<>(maxQueueSize);
@@ -72,16 +69,17 @@ public class RevenueManagerImpl implements RevenueManager {
 
     @Override public void start(int nWorkers) {
         for (int i = 0; i < nWorkers; ++i) {
-            exec.execute(new Worker());
+            serviceManager.startService(new Worker());
         }
     }
 
     @Override public void stop() {
         try {
-            exec.awaitTermination(MAX_WAIT_FOR_TERMINATION_SECONDS, TimeUnit.SECONDS);
+            serviceManager.interruptAll();
+            serviceManager.awaitTermination(MAX_WAIT_FOR_TERMINATION_SECONDS, TimeUnit.SECONDS);
         } catch (InterruptedException e) {
-            List<Runnable> tasks = exec.shutdownNow();
-            LOGGER.warn("Shutting down was not successful. Amount of tasks that stopped: " + tasks.size());
+            serviceManager.terminate();
+            LOGGER.warn("Shutting down was not successful. ");
         }
     }
 
@@ -119,24 +117,23 @@ public class RevenueManagerImpl implements RevenueManager {
 
     private class Worker implements Runnable {
 
-        private volatile boolean interrupt = false;
-        private static final int MAX_WAIT_SECONDS = 2;
+        private boolean interrupted = false;
 
         @Override public void run() {
-            while (!interrupt) {
+            while (!interrupted) {
                 Task task = waitForTask();
-                if (interrupt) {
+                if (interrupted) {
                     return;
                 }
                 if (isTimeExceeded(task.timeAdded)) {
                     task.callback.error(new ValidationError("Sorry. Service was too busy to compute"));
                     continue;
                 }
-                List<Callable<Output>> toExecute = Arrays.asList(() -> processor.compute(task.input));
+                Callable<Output> toExecute = () -> processor.compute(task.input);
                 try {
-                    Output result = exec.invokeAny(toExecute, MAX_WAIT_FOR_COMPLETION_SECONDS, TimeUnit.SECONDS);
+                    Output result = serviceManager.computeAsync(toExecute, MAX_WAIT_FOR_COMPLETION_SECONDS, TimeUnit.SECONDS);
                     task.callback.success(result);
-                } catch (InterruptedException | ExecutionException | TimeoutException e) {
+                } catch (TimeoutException e) {
                     LOGGER.error(e.getLocalizedMessage());
                     task.callback.error(new ValidationError(e.getMessage()));
                 }
@@ -148,26 +145,12 @@ public class RevenueManagerImpl implements RevenueManager {
         }
 
         private Task waitForTask() {
-            Task task = null;
             try {
-                while ((task = workQueue.poll(MAX_WAIT_SECONDS, TimeUnit.SECONDS)) == null) {
-                    if (interrupt) {
-                        return null;
-                    }
-                }
+                return workQueue.take();
             } catch (InterruptedException e) {
-                interrupt = true;
+                interrupted = true;
                 return null;
             }
-            return task;
-        }
-
-        public boolean isInterrupt() {
-            return interrupt;
-        }
-
-        public void setInterrupt(boolean interrupt) {
-            this.interrupt = interrupt;
         }
     }
 

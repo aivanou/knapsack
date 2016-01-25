@@ -12,7 +12,7 @@ import java.util.List;
  */
 public class Output {
 
-    private Collection<OutputItem> outputItem;
+    private List<OutputItem> outputItem;
     private OutputMetadata outputMetadata;
 
     public Output() {
@@ -20,7 +20,7 @@ public class Output {
         this.outputMetadata = new OutputMetadata(0, 0);
     }
 
-    public Output(Collection<OutputItem> outputItem, OutputMetadata outputMetadata) {
+    public Output(List<OutputItem> outputItem, OutputMetadata outputMetadata) {
         this.outputItem = outputItem;
         this.outputMetadata = outputMetadata;
     }
@@ -36,7 +36,7 @@ public class Output {
     }
 
     @JsonProperty
-    public Collection<OutputItem> getOutputItem() {
+    public List<OutputItem> getOutputItem() {
         return outputItem;
     }
 
