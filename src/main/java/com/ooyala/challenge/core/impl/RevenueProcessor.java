@@ -11,8 +11,8 @@ public abstract class RevenueProcessor implements Processor {
 
     @Override
     public Output compute(Input input) {
-        List<Company> removedCompanies = removeCompaniesWithZeroRevenue(input);
-        List<Company> removedByDomination = removeDominatedCompanies(input.getCompanies());
+        Set<Company> removedCompanies = removeCompaniesWithZeroRevenue(input);
+        Set<Company> removedByDomination = removeDominatedCompanies(input.getCompanies());
         int factor = normalise(input);
         if (input.getCompanies().isEmpty()) {
             Output output = new Output(new ArrayList<>(), new OutputMetadata(0, 0));
@@ -21,20 +21,14 @@ public abstract class RevenueProcessor implements Processor {
         }
         Output output = compute(input.getCompanies(), input.getAvailableImpressions());
         denormalise(output, factor, input);
-        removedCompanies.stream().forEach(company -> {
-            output.getOutputItem().add(new OutputItem(company.getName(), 0, 0, 0));
-            input.getCompanies().add(company);
-        });
-        removedByDomination.stream().forEach(company -> {
-            output.getOutputItem().add(new OutputItem(company.getName(), 0, 0, 0));
-            input.getCompanies().add(company);
-        });
+        addDefaultElements(output.getOutputItem(), input, removedCompanies);
+        addDefaultElements(output.getOutputItem(), input, removedByDomination);
         return output;
     }
 
     protected abstract Output compute(List<Company> companies, int availableImpressions);
 
-    private List<Company> removeDominatedCompanies(List<Company> companies) {
+    private Set<Company> removeDominatedCompanies(List<Company> companies) {
         companies.sort((o1, o2) -> {
             if (o1 == null) {
                 return -1;
@@ -43,11 +37,14 @@ public abstract class RevenueProcessor implements Processor {
             }
             return Integer.compare(o1.getNumberOfImpression(), o2.getNumberOfImpression());
         });
-        List<Company> companiesToRemove = new ArrayList<>();
+        Set<Company> companiesToRemove = new HashSet<>();
         for (int i = 1; i < companies.size(); ++i) {
             Company toCheck = companies.get(i);
             for (int j = 0; j < i; ++j) {
                 Company company = companies.get(j);
+                if (companiesToRemove.contains(company)) {
+                    continue;
+                }
                 int amount = toCheck.getNumberOfImpression() / company.getNumberOfImpression();
                 if (amount * company.getRevenue() > toCheck.getRevenue()) {
                     companiesToRemove.add(toCheck);
@@ -59,8 +56,8 @@ public abstract class RevenueProcessor implements Processor {
         return companiesToRemove;
     }
 
-    private List<Company> removeCompaniesWithZeroRevenue(Input input) {
-        List<Company> removedCompanies = new ArrayList<>();
+    private Set<Company> removeCompaniesWithZeroRevenue(Input input) {
+        Set<Company> removedCompanies = new HashSet<>();
         for (Iterator<Company> it = input.getCompanies().iterator(); it.hasNext(); ) {
             Company company = it.next();
             if (company.getRevenue() == 0) {
@@ -69,6 +66,13 @@ public abstract class RevenueProcessor implements Processor {
             }
         }
         return removedCompanies;
+    }
+
+    private void addDefaultElements(List<OutputItem> outputItems, Input input, Set<Company> companies) {
+        companies.stream().forEach(company -> {
+            outputItems.add(new OutputItem(company.getName(), 0, 0, 0));
+            input.getCompanies().add(company);
+        });
     }
 
     private int normalise(Input input) {

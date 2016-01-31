@@ -267,57 +267,23 @@ public class ParallelRevenueProcessor extends RevenueProcessor implements Proces
             for (int cap = 1; cap < combinedRevenues.length; ++cap) {
                 int l = 0;
                 int r = cap;
-                int maxL = 0;
-                int maxR = 0;
                 int maxCurrentRevenue = 0;
                 while (l <= cap && r >= 0) {
                     int newRevenue = r1.revenues[l] + r2.revenues[r];
                     if (maxCurrentRevenue < newRevenue) {
                         maxCurrentRevenue = newRevenue;
-                        maxL = l;
-                        maxR = r;
                     }
                     l++;
                     r--;
                 }
                 combinedRevenues[cap] = maxCurrentRevenue;
-                if (maxCurrentRevenue != 0) {
-                    combine(combinedCompanies, r1, r2, maxL, maxR, companies);
-                } else {
-                    combinedCompanies[cap] = -1;
-                }
+                combinedCompanies[cap] = Math.max(r1.companies[cap], r2.companies[cap]);
                 if (maxRevenue < maxCurrentRevenue) {
                     maxRevenue = maxCurrentRevenue;
                     maxCapacity = cap;
                 }
             }
             return new Result(combinedRevenues, combinedCompanies, maxRevenue, maxCapacity);
-        }
-
-        private void combine(int[] combinedCompanies, Result r1, Result r2, int l, int r, List<Company> companies) {
-            int capacity = l + r;
-            int curr = l;
-            while (curr > 0) {
-                int companyIndex = r1.companies[curr];
-                if (companyIndex == -1) {
-                    combinedCompanies[curr] = -1;
-                    break;
-                }
-                Company company = companies.get(companyIndex);
-                combinedCompanies[curr] = companyIndex;
-                curr -= company.getNumberOfImpression();
-            }
-            curr = r;
-            while (curr > 0) {
-                int companyIndex = r2.companies[curr];
-                if (companyIndex == -1) {
-                    combinedCompanies[capacity - curr] = -1;
-                    break;
-                }
-                Company company = companies.get(companyIndex);
-                combinedCompanies[capacity - curr] = companyIndex;
-                curr -= company.getNumberOfImpression();
-            }
         }
     }
 
