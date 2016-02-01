@@ -60,8 +60,7 @@ public class Output {
     }
 
     @Override public int hashCode() {
-        int result = outputItem != null ? outputItem.hashCode() : 0;
-        result = 31 * result + (outputMetadata != null ? outputMetadata.hashCode() : 0);
+        int result = (outputMetadata != null ? outputMetadata.hashCode() : 0);
         return result;
     }
 

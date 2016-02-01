@@ -3,6 +3,7 @@ package com.ooyala.challenge.core;
 import com.ooyala.challenge.DummyInputDataSets;
 import com.ooyala.challenge.core.Processor;
 import com.ooyala.challenge.core.impl.BranchBoundRevenueProcessor;
+import com.ooyala.challenge.core.impl.ForkJoinRevenueProcessor;
 import com.ooyala.challenge.core.impl.ParallelRevenueProcessor;
 import com.ooyala.challenge.core.impl.SequentialRevenueProcessor;
 import com.ooyala.challenge.data.Input;
@@ -124,6 +125,15 @@ public class RevenueProcessorImplTest {
         int tasks = 6;
         ParallelRevenueProcessor p = new ParallelRevenueProcessor(exec, tasks);
         Input set4 = DummyInputDataSets.generateRandom(15, 300, 30, 30);
+        Output out = p.compute(set4);
+        Output out1 = processor.compute(set4);
+        Assert.assertEquals(out1.getOutputMetadata(), out.getOutputMetadata());
+    }
+
+    @Test
+    public void testParallel2() {
+        Processor p = new ForkJoinRevenueProcessor();
+        Input set4 = DummyInputDataSets.generateRandom(15, 40, 30, 30);
         Output out = p.compute(set4);
         Output out1 = processor.compute(set4);
         Assert.assertEquals(out1.getOutputMetadata(), out.getOutputMetadata());

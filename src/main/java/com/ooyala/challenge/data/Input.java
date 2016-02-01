@@ -53,7 +53,8 @@ public class Input {
         return companies;
     }
 
-    @Override public boolean equals(Object o) {
+    @Override
+    public boolean equals(Object o) {
         if (this == o)
             return true;
         if (o == null || getClass() != o.getClass())
@@ -67,7 +68,8 @@ public class Input {
 
     }
 
-    @Override public int hashCode() {
+    @Override
+    public int hashCode() {
         int result = (int) (availableImpressions ^ (availableImpressions >>> 32));
         result = 31 * result + (companies != null ? companies.hashCode() : 0);
         return result;

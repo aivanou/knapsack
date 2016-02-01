@@ -9,9 +9,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
@@ -39,7 +37,7 @@ import java.util.stream.Collectors;
  * <p>
  * The resultQueue contains the final result
  */
-public class ParallelRevenueProcessor extends RevenueProcessor implements Processor {
+public class ParallelRevenueProcessor extends AbstractParallelProcessor implements Processor {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(ParallelRevenueProcessor.class);
     private Executor executor;
@@ -91,30 +89,7 @@ public class ParallelRevenueProcessor extends RevenueProcessor implements Proces
         } catch (InterruptedException e) {
             e.printStackTrace();
         }
-        List<OutputItem> items = gatherCompanies(result, companies);
-        return new Output(items, new OutputMetadata(result.totalCapacity, result.maxRevenue));
-    }
-
-    private List<OutputItem> gatherCompanies(Result result, List<Company> companies) {
-        List<OutputItem> items = new ArrayList<>(companies.size());
-        items.addAll(companies.stream()
-            .map(company -> new OutputItem(company.getName(), 0, 0, 0))
-            .collect(Collectors.toList()));
-        int curr = result.totalCapacity;
-        while (curr > 0) {
-            int companyIndex = result.companies[curr];
-            Company company = companies.get(companyIndex);
-            OutputItem item = items.get(companyIndex);
-            increaseOutputValues(item, company);
-            curr -= company.getNumberOfImpression();
-        }
-        return items;
-    }
-
-    private void increaseOutputValues(OutputItem outputItem, Company company) {
-        outputItem.incCampains();
-        outputItem.increaseTotalImpressions(company.getNumberOfImpression());
-        outputItem.increaseTotalRevenue(company.getRevenue());
+        return translate(result, companies);
     }
 
     private Segment[] split(List<Company> companies, int nTasks) {
@@ -127,34 +102,6 @@ public class ParallelRevenueProcessor extends RevenueProcessor implements Proces
         }
         taskData[nTasks - 1] = new Segment((nTasks - 1) * batch, companies.size());
         return taskData;
-    }
-
-    private Result internalCompute(List<Company> companies, int availableImpressions, Segment segment) {
-        int[] revenues = new int[availableImpressions + 1];
-        int maxCapacity = 0;
-        int maxRevenue = 0;
-        int[] acceptedCompanies = new int[availableImpressions + 1];
-        for (int capacity = 1; capacity <= availableImpressions; ++capacity) {
-            int maxCurrentRevenue = 0;
-            acceptedCompanies[capacity] = -1;
-            for (int i = segment.left; i < segment.right; ++i) {
-                Company company = companies.get(i);
-                if (company.getNumberOfImpression() > capacity) {
-                    continue;
-                }
-                int currentRevenue = revenues[capacity - company.getNumberOfImpression()] + company.getRevenue();
-                if (maxCurrentRevenue < currentRevenue) {
-                    maxCurrentRevenue = currentRevenue;
-                    acceptedCompanies[capacity] = i;
-                    revenues[capacity] = maxCurrentRevenue;
-                }
-            }
-            if (maxRevenue < maxCurrentRevenue) {
-                maxRevenue = maxCurrentRevenue;
-                maxCapacity = capacity;
-            }
-        }
-        return new Result(revenues, acceptedCompanies, maxRevenue, maxCapacity);
     }
 
     private final Object lock = new Object();
@@ -171,7 +118,7 @@ public class ParallelRevenueProcessor extends RevenueProcessor implements Proces
          */
         private volatile boolean interrupt = false;
         private final int WAIT_TIME = 2;
-        private volatile AtomicInteger processingTasks;
+        private volatile AtomicInteger activeTasks;
 
         public ComputeTask(List<Company> companies, Segment segment, int availableImpressions, CountDownLatch barrier,
             BlockingDeque<Result> resultQueue, BlockingDeque<Result> outputQueue, AtomicInteger processingTasks) {
@@ -181,16 +128,18 @@ public class ParallelRevenueProcessor extends RevenueProcessor implements Proces
             this.barrier = barrier;
             this.resultQueue = resultQueue;
             this.outputQueue = outputQueue;
-            this.processingTasks = processingTasks;
+            this.activeTasks = processingTasks;
         }
 
         @Override public void run() {
-            Result result = internalCompute(companies, availableImpressions, segment);
-            outputQueue.add(result);
-            barrier.countDown();
-            waitForAllTasksToFinish();
-            if (!interrupt) {
-                combine();
+            try {
+                Result result = internalCompute(companies, availableImpressions, segment.left, segment.right);
+                outputQueue.add(result);
+                barrier.countDown();
+                waitForAllTasksToFinish();
+                gather();
+            } catch (InterruptedException e) {
+                LOGGER.warn("TASK was interrupted by somebody");
             }
         }
 
@@ -202,22 +151,15 @@ public class ParallelRevenueProcessor extends RevenueProcessor implements Proces
             this.interrupt = interrupt;
         }
 
-        private void waitForAllTasksToFinish() {
-            try {
-                while (!barrier.await(WAIT_TIME, TimeUnit.SECONDS)) {
-                    if (interrupt) {
-                        LOGGER.warn("TASK was interrupted by somebody");
-                        return;
-                    }
+        private void waitForAllTasksToFinish() throws InterruptedException {
+            while (!barrier.await(WAIT_TIME, TimeUnit.SECONDS)) {
+                if (interrupt) {
+                    throw new InterruptedException("interrupted");
                 }
-            } catch (InterruptedException e) {
-                //interrupted, finish the task
-                LOGGER.error(e.getLocalizedMessage());
-                return;
             }
         }
 
-        private void combine() {
+        private void gather() {
             while (true) {
                 Result r1 = null;
                 Result r2 = null;
@@ -227,7 +169,7 @@ public class ParallelRevenueProcessor extends RevenueProcessor implements Proces
                     }
                     try {
                         r1 = getObjectFromQueue();
-                        if (outputQueue.isEmpty() && processingTasks.get() == 0) {
+                        if (outputQueue.isEmpty() && activeTasks.get() == 0) {
                             /**if the queue has only 1 element that means that all subtasks were combined*/
                             resultQueue.add(r1);
                             return;
@@ -237,7 +179,7 @@ public class ParallelRevenueProcessor extends RevenueProcessor implements Proces
                             return;
                         }
                         r2 = getObjectFromQueue();
-                        processingTasks.incrementAndGet();
+                        activeTasks.incrementAndGet();
                     } catch (InterruptedException e) {
                         LOGGER.error(e.getLocalizedMessage());
                         return;
@@ -245,7 +187,7 @@ public class ParallelRevenueProcessor extends RevenueProcessor implements Proces
                 }
                 Result combined = combine(r1, r2);
                 outputQueue.add(combined);
-                processingTasks.decrementAndGet();
+                activeTasks.decrementAndGet();
             }
         }
 
@@ -257,47 +199,6 @@ public class ParallelRevenueProcessor extends RevenueProcessor implements Proces
                 }
             }
             return r;
-        }
-
-        private Result combine(Result r1, Result r2) {
-            int[] combinedRevenues = new int[r1.revenues.length];
-            int[] combinedCompanies = new int[r1.revenues.length];
-            int maxRevenue = 0;
-            int maxCapacity = 0;
-            for (int cap = 1; cap < combinedRevenues.length; ++cap) {
-                int l = 0;
-                int r = cap;
-                int maxCurrentRevenue = 0;
-                while (l <= cap && r >= 0) {
-                    int newRevenue = r1.revenues[l] + r2.revenues[r];
-                    if (maxCurrentRevenue < newRevenue) {
-                        maxCurrentRevenue = newRevenue;
-                    }
-                    l++;
-                    r--;
-                }
-                combinedRevenues[cap] = maxCurrentRevenue;
-                combinedCompanies[cap] = Math.max(r1.companies[cap], r2.companies[cap]);
-                if (maxRevenue < maxCurrentRevenue) {
-                    maxRevenue = maxCurrentRevenue;
-                    maxCapacity = cap;
-                }
-            }
-            return new Result(combinedRevenues, combinedCompanies, maxRevenue, maxCapacity);
-        }
-    }
-
-    private class Result {
-        int[] revenues;
-        int[] companies;
-        int maxRevenue;
-        int totalCapacity;
-
-        public Result(int[] revenues, int[] companies, int maxRevenue, int totalCapacity) {
-            this.revenues = revenues;
-            this.companies = companies;
-            this.maxRevenue = maxRevenue;
-            this.totalCapacity = totalCapacity;
         }
     }
 
